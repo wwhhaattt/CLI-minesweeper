@@ -1,13 +1,17 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
 #include <windows.h>
-#include <string.h>
 #include <conio.h>
 
 int gameOver = 0;
 int win = 0;
 int firstClick = 1;
+
+int speed = 12;
+int revealed[16][16] = {0};
+int flagged[16][16] = {0};
+// 初始化地图
+int** map = NULL;
 
 // 光标跳转
 void cursor(int x, int y) {
@@ -61,8 +65,7 @@ void type(const char *content) {
         fflush(stdout);
         
         // 处理停顿
-        int speed = 24;
-        int variation = rand() % 40 - 20;
+        int variation = rand() % 21 - 10;
         Sleep(speed + variation);
     }
 }
@@ -108,7 +111,7 @@ int *analysis(char *position) {
     return result;
 }
 
-// 初次操作使用的定位器
+// 计算光标位置并移动
 void firstPosition(int *position) {
     int xEstimate = 8;
     int yEstimate = 4;
@@ -266,15 +269,98 @@ void showAllMines(int** map, int revealed[16][16], int flagged[16][16]) {
     }
 }
 
+void Enter(int _x,int _y)
+{
+	if(revealed[_x-1][_y-1])
+	{
+		int countflagged=0;
+		int countmine=0;
+		for(int i=-1;i<2;i++)
+		{
+			for(int j=-1;j<2;j++)
+			{
+				if((i||j)&&_x+i>0&&_x+i<17&&_y+j>0&&_y+j<17)
+				{
+					if(flagged[_x+i-1][_y+j-1])countflagged++;
+					if(map[_x+i-1][_y+j-1])countmine++;
+				}
+			}
+		}
+		if(countflagged>=countmine)
+		{
+			for(int i=-1;i<2;i++)
+			{
+				for(int j=-1;j<2;j++)
+				{
+					int x=_x+i,y=_y+j;
+					if(x<1||x>16||y<1||y>16)continue;
+					if (!flagged[x-1][y-1]&&!revealed[x-1][y-1]) {
+						int mineNumber = mine(x, y, map);
+						if (mineNumber == 9) {
+							// 游戏结束
+							revealed[x-1][y-1] = 1;
+							firstPosition((int[2]){x, y});
+							screen(x, y, mineNumber, revealed, flagged);
+							gameOver = 1;
+							
+							showAllMines(map, revealed, flagged);
+							return;
+						}
+						else {
+							revealArea(x, y, map, revealed, flagged);
+							
+							// 检查胜利
+							if (checkWin(map, revealed)) {
+								win = 1;
+								gameOver = 1;
+							}
+							
+							if (!gameOver) {
+								firstPosition((int[2]){x, y});
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		int x=_x,y=_y;
+		if (!flagged[x-1][y-1]) {
+			int mineNumber = mine(x, y, map);
+			if (mineNumber == 9) {
+				// 游戏结束
+				revealed[x-1][y-1] = 1;
+				firstPosition((int[2]){x, y});
+				screen(x, y, mineNumber, revealed, flagged);
+				gameOver = 1;
+				
+				showAllMines(map, revealed, flagged);
+			}
+			else {
+				revealArea(x, y, map, revealed, flagged);
+				
+				// 检查胜利
+				if (checkWin(map, revealed)) {
+					win = 1;
+					gameOver = 1;
+				}
+				
+				if (!gameOver) {
+					firstPosition((int[2]){x, y});
+				}
+			}
+		}
+	}
+}
+
 int main() {
     // 初始化
     system("cls");
-    Sleep(1000);
     system("title Minesweeper");
     int x, y;
     int count;
-    int revealed[16][16] = {0};
-    int flagged[16][16] = {0};
     
     // 头部
     const char *head = 
@@ -285,40 +371,32 @@ int main() {
     type(head);
     Sleep(128);
     type(alpha);
-    count = 1;
-    while (count <= 8) {
-        type(" ");
-        count ++;
-    }
-    count = 0;
-    while (count < 16) {
-        type(col);
-        count ++;
-    }
+	count=8;
+	while(count--)type(" ");
+	count=16;
+	while(count--)type(col);
     printf("\n");
     
-    // 初始化地图
-    int** map = NULL;
     
     for (x = 0; x < 16; x ++) {
         count = 1;
         if (x < 9) {
             while (count < 6) {
                 printf(" ");
-                Sleep(24);
+                Sleep(speed);
                 count ++;
             }
         }
         else {
             while (count < 5) {
                 printf(" ");
-                Sleep(24);
+                Sleep(speed);
                 count ++;
             }
         }
-        count = 1;
+        //count = 1;
         printf ("%d", x + 1);
-        Sleep(24);
+        Sleep(speed);
         type(ln);
         
         printf("\n");
@@ -356,31 +434,7 @@ int main() {
         int arrow = getch();
         
         if (arrow == 13) { // enter
-            if (!flagged[x-1][y-1]) {
-                int mineNumber = mine(x, y, map);
-                if (mineNumber == 9) {
-                    // 游戏结束
-                    revealed[x-1][y-1] = 1;
-                    firstPosition((int[2]){x, y});
-                    screen(x, y, mineNumber, revealed, flagged);
-                    gameOver = 1;
-                    
-                    showAllMines(map, revealed, flagged);
-                }
-                else {
-                    revealArea(x, y, map, revealed, flagged);
-                    
-                    // 检查胜利
-                    if (checkWin(map, revealed)) {
-                        win = 1;
-                        gameOver = 1;
-                    }
-                    
-                    if (!gameOver) {
-                        firstPosition((int[2]){x, y});
-                    }
-                }
-            }
+            Enter(x,y);
         }
         else if (arrow == 32) { // space
             if (!revealed[x-1][y-1]) {
